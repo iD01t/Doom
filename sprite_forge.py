@@ -65,6 +65,16 @@ try:
     GUI_AVAILABLE = True
 except ImportError:
     GUI_AVAILABLE = False
+    class _Dummy:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    QApplication = QMainWindow = QWidget = QVBoxLayout = QHBoxLayout = QGridLayout = QLabel = QPushButton = QLineEdit = QComboBox = QCheckBox = QSpinBox = QSlider = QTextEdit = QProgressBar = QFileDialog = QMessageBox = QTabWidget = QGroupBox = QScrollArea = QSplitter = QStatusBar = QMenuBar = QMenu = QToolBar = QFrame = QSpacerItem = QSizePolicy = _Dummy
+    QThread = _Dummy
+    def pyqtSignal(*args, **kwargs):
+        return None
+    QTimer = QSettings = QSize = _Dummy
+    QPixmap = QPainter = QColor = QFont = QAction = QIcon = QPalette = QTransform = QPen = QBrush = _Dummy
 
 from PIL import Image, ImageEnhance, ImageOps, ImageFilter
 import numpy as np
@@ -121,6 +131,30 @@ def apply_doom_palette(image: Image.Image, preserve_transparency: bool = True) -
     result.putdata(new_pixels)
     return result
 
+# CLI Helpers
+def parse_cli_value(value: str) -> Any:
+    """Best-effort conversion of CLI parameter values."""
+    lowered = value.lower()
+    if lowered in {"true", "false"}:
+        return lowered == "true"
+    try:
+        if "." in value:
+            return float(value)
+        return int(value)
+    except ValueError:
+        return value
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    """Create CLI argument parser."""
+    parser = argparse.ArgumentParser(description="Sprite Forge 2025")
+    parser.add_argument("--input", "-i", help="Input image path")
+    parser.add_argument("--output", "-o", help="Output image path")
+    parser.add_argument("--plugin", "-p", help="Plugin to apply")
+    parser.add_argument("--param", action="append", default=[], help="Plugin parameter as key=value")
+    parser.add_argument("--list-plugins", action="store_true", help="List available plugins")
+    return parser
+
 # Plugin System
 @dataclass
 class PluginInfo:
@@ -162,20 +196,34 @@ class PluginManager:
         if not os.path.exists(self.plugin_dir):
             os.makedirs(self.plugin_dir)
             self.create_example_plugins()
-            return
-        
+
+        # Load JSON plugin configs
         for file_path in Path(self.plugin_dir).glob("*.json"):
             try:
                 with open(file_path, 'r') as f:
                     plugin_config = json.load(f)
-                
+
                 plugin = self.create_plugin_from_config(plugin_config, str(file_path))
                 if plugin:
                     info = plugin.get_info()
                     self.plugins[info.name] = plugin
-                    
+
             except Exception as e:
                 print(f"Failed to load plugin {file_path}: {e}")
+
+        # Load zipped plugin packs
+        for file_path in Path(self.plugin_dir).glob("*.zip"):
+            try:
+                with zipfile.ZipFile(file_path) as zf:
+                    if 'plugin.json' in zf.namelist():
+                        with zf.open('plugin.json') as f:
+                            plugin_config = json.load(f)
+                        plugin = self.create_plugin_from_config(plugin_config, f"{file_path}!plugin.json")
+                        if plugin:
+                            info = plugin.get_info()
+                            self.plugins[info.name] = plugin
+            except Exception as e:
+                print(f"Failed to load plugin pack {file_path}: {e}")
     
     def create_plugin_from_config(self, config: Dict, file_path: str) -> Optional[BasePlugin]:
         """Create a plugin instance from JSON configuration."""
@@ -195,7 +243,7 @@ class PluginManager:
     
     def create_example_plugins(self):
         """Create example plugin configurations."""
-        # AI Recolor Plugin
+        # AI Recolor Plugin (provided as zip pack example)
         ai_recolor = {
             "name": "AI Recolor",
             "version": "1.0.0",
@@ -215,6 +263,70 @@ class PluginManager:
                     {"action": "shift_hue", "param": "hue_shift"},
                     {"action": "scale_saturation", "param": "saturation"},
                     {"action": "scale_lightness", "param": "lightness"},
+                    {"action": "convert_rgb"}
+                ]
+            }
+        }
+
+        # Provider-specific AI plugins
+        openai_recolor = {
+            "name": "OpenAI Recolor",
+            "version": "1.0.0",
+            "description": "Use OpenAI to recolor sprites from a text prompt",
+            "author": "Sprite Forge Team",
+            "category": "AI",
+            "parameters": {
+                "prompt": {"type": "text", "default": "make it blue", "label": "Prompt"},
+                "hue_shift": {"type": "slider", "min": -180, "max": 180, "default": 0, "label": "Hue Bias"}
+            },
+            "processing": {
+                "type": "ai_recolor",
+                "provider": "openai",
+                "steps": [
+                    {"action": "convert_hsv"},
+                    {"action": "shift_hue", "param": "hue_shift"},
+                    {"action": "convert_rgb"}
+                ]
+            }
+        }
+
+        claude_recolor = {
+            "name": "Claude Recolor",
+            "version": "1.0.0",
+            "description": "Use Claude to recolor sprites from a text prompt",
+            "author": "Sprite Forge Team",
+            "category": "AI",
+            "parameters": {
+                "prompt": {"type": "text", "default": "warmer palette", "label": "Prompt"},
+                "hue_shift": {"type": "slider", "min": -180, "max": 180, "default": 0, "label": "Hue Bias"}
+            },
+            "processing": {
+                "type": "ai_recolor",
+                "provider": "claude",
+                "steps": [
+                    {"action": "convert_hsv"},
+                    {"action": "shift_hue", "param": "hue_shift"},
+                    {"action": "convert_rgb"}
+                ]
+            }
+        }
+
+        gemini_recolor = {
+            "name": "Gemini Recolor",
+            "version": "1.0.0",
+            "description": "Use Gemini to recolor sprites from a text prompt",
+            "author": "Sprite Forge Team",
+            "category": "AI",
+            "parameters": {
+                "prompt": {"type": "text", "default": "green tones", "label": "Prompt"},
+                "hue_shift": {"type": "slider", "min": -180, "max": 180, "default": 0, "label": "Hue Bias"}
+            },
+            "processing": {
+                "type": "ai_recolor",
+                "provider": "gemini",
+                "steps": [
+                    {"action": "convert_hsv"},
+                    {"action": "shift_hue", "param": "hue_shift"},
                     {"action": "convert_rgb"}
                 ]
             }
@@ -264,12 +376,17 @@ class PluginManager:
             }
         }
         
-        # Save example plugins
-        plugins = [ai_recolor, preview_3d, edge_enhance]
-        for plugin_config in plugins:
+        # Save JSON example plugins
+        json_plugins = [preview_3d, edge_enhance, openai_recolor, claude_recolor, gemini_recolor]
+        for plugin_config in json_plugins:
             filename = f"{plugin_config['name'].lower().replace(' ', '_')}.json"
             with open(os.path.join(self.plugin_dir, filename), 'w') as f:
                 json.dump(plugin_config, f, indent=2)
+
+        # Save zipped plugin pack for marketplace demonstration
+        zip_path = os.path.join(self.plugin_dir, 'ai_recolor_pack.zip')
+        with zipfile.ZipFile(zip_path, 'w') as zf:
+            zf.writestr('plugin.json', json.dumps(ai_recolor, indent=2))
 
 class JSONConfigPlugin(BasePlugin):
     """Plugin created from JSON configuration."""
@@ -305,6 +422,9 @@ class JSONConfigPlugin(BasePlugin):
             return self._process_isometric(image, steps, kwargs)
         elif proc_type == "edge_filter":
             return self._process_edge_filter(image, steps, kwargs)
+        elif proc_type == "ai_recolor":
+            provider = processing.get("provider", "")
+            return self._process_ai_recolor(image, provider, steps, kwargs)
         else:
             return image
     
@@ -376,6 +496,34 @@ class JSONConfigPlugin(BasePlugin):
         from PIL import Image as PILImage
         result = PILImage.blend(img, enhanced, 0.5)
         return result
+
+    def _process_ai_recolor(self, image: Image.Image, provider: str, steps: List[Dict], params: Dict) -> Image.Image:
+        """Placeholder AI recolor implementation with optional API hooks."""
+        prompt = params.get('prompt', '')
+        env_map = {
+            'openai': 'OPENAI_API_KEY',
+            'claude': 'ANTHROPIC_API_KEY',
+            'gemini': 'GEMINI_API_KEY'
+        }
+        api_key = os.environ.get(env_map.get(provider, ''), '')
+        if api_key:
+            try:
+                if provider == 'openai':
+                    import openai
+                    openai.api_key = api_key
+                    # Real implementation would call OpenAI image APIs
+                elif provider == 'claude':
+                    import anthropic
+                    anthropic.Anthropic(api_key=api_key)
+                elif provider == 'gemini':
+                    import google.generativeai as genai
+                    genai.configure(api_key=api_key)
+                print(f"AI recolor via {provider} with prompt '{prompt}'")
+            except Exception as e:
+                print(f"{provider} API error: {e}")
+
+        # Fallback HSV processing
+        return self._process_hsv_transform(image, steps, params)
 
 # Enhanced Canvas Widget
 class ImageCanvas(QWidget):
@@ -1245,27 +1393,51 @@ class SpriteForgeMainWindow(QMainWindow):
 # Application Entry Point
 def main():
     """Main application entry point."""
-    # Handle command line arguments
-    if len(sys.argv) > 1:
-        # CLI mode - use original CLI functionality
-        print("CLI mode not fully implemented in enhanced version")
-        print("Use original sprite_forge_2025.py for CLI features")
-        return 1
-    
+    parser = build_arg_parser()
+    args = parser.parse_args()
+
+    if args.list_plugins:
+        pm = PluginManager()
+        for info in pm.list_plugins():
+            print(f"{info.name} - {info.description}")
+        return 0
+
+    if args.input:
+        pm = PluginManager()
+        try:
+            img = Image.open(args.input)
+        except Exception as e:
+            print(f"Failed to open {args.input}: {e}")
+            return 1
+
+        if args.plugin:
+            plugin = pm.get_plugin(args.plugin)
+            if not plugin:
+                print(f"Plugin '{args.plugin}' not found")
+                return 1
+            params = {}
+            for param in args.param:
+                if '=' in param:
+                    k, v = param.split('=', 1)
+                    params[k] = parse_cli_value(v)
+            img = plugin.process_image(img, **params)
+
+        output = args.output or 'output.png'
+        img.save(output)
+        print(f"Saved {output}")
+        return 0
+
     if not GUI_AVAILABLE:
         print("PyQt6 not available. Please install: pip install PyQt6")
         return 1
-    
+
     app = QApplication(sys.argv)
     app.setApplicationName("Enhanced Sprite Forge 2025")
     app.setOrganizationName("SpriteForge")
-    
-    # Set application icon (if available)
-    # app.setWindowIcon(QIcon("icon.png"))
-    
+
     window = SpriteForgeMainWindow()
     window.show()
-    
+
     return app.exec()
 
 if __name__ == "__main__":

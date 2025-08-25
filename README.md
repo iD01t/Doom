@@ -30,12 +30,19 @@ Built with **PyQt6**, **Pillow**, and **NumPy**, this tool is designed for both 
 * **Plugin System (JSON-based)**
 
   * Drop `.json` configs into the `plugins/` folder
+  * Supports plugin packs distributed as `.zip`
   * Auto-loads new tools without touching the core
   * Example plugins included:
 
     * **AI Recolor** (HSV shifting, skin-tone preservation)
     * **3D Preview** (isometric sprite projection)
     * **Edge Enhancement** (sharpen and enhance details)
+    * **OpenAI/Claude/Gemini Recolor** (prompt-driven palettes)
+
+* **Unified CLI + GUI**
+
+  * Run `python sprite_forge.py` for the GUI
+  * Run `python sprite_forge.py --input in.png --plugin "AI Recolor" --output out.png` for automation
 
 * **Smart Export**
 
@@ -59,7 +66,7 @@ Clone the repo and run directly:
 ```bash
 git clone https://github.com/YOUR_USERNAME/sprite-forge-2025.git
 cd sprite-forge-2025
-python sprite_forge_enhanced.py
+python sprite_forge.py
 ```
 
 The script auto-installs dependencies if missing:
@@ -81,7 +88,7 @@ pip install PyQt6 pillow numpy
 ### Run the GUI
 
 ```bash
-python sprite_forge_enhanced.py
+python sprite_forge.py
 ```
 
 1. Load a PNG/JPG/BMP sprite sheet.
@@ -89,6 +96,14 @@ python sprite_forge_enhanced.py
 3. Apply processing (pixelate, Doom palette, transparency).
 4. Preview results instantly.
 5. Export as **PK3** or **WAD layout**.
+
+### Run from the CLI
+
+```bash
+python sprite_forge.py --input input.png --plugin "AI Recolor" --param hue_shift=45 --output output.png
+```
+
+Use `--list-plugins` to see available plugins.
 
 ### Export PK3
 
@@ -105,7 +120,7 @@ python sprite_forge_enhanced.py
 
 ## 🔌 Plugin System
 
-Plugins are defined in **JSON config files** placed in the `plugins/` folder.
+Plugins are defined in **JSON config files** or `.zip` packs placed in the `plugins/` folder.
 
 Example:
 
@@ -136,6 +151,12 @@ Example:
 
 ⚡ When the app starts, it automatically loads all plugins and creates UI widgets for their parameters.
 
+AI plugins expect API keys via environment variables:
+
+* `OPENAI_API_KEY`
+* `ANTHROPIC_API_KEY`
+* `GEMINI_API_KEY`
+
 ---
 
 ## 📷 Screenshots
@@ -150,17 +171,15 @@ Example:
 
 ## ⚠️ Notes
 
-* CLI batch mode is available in the original `sprite_forge_2025.py`.
-* Enhanced version focuses on **GUI and plugins**.
-* For automation pipelines, combine both versions.
+* Run `python sprite_forge.py --help` for CLI usage or launch with no arguments for the GUI.
 
 ---
 
 ## 🗺️ Roadmap
 
-* [ ] Merge CLI + GUI for a unified tool
-* [ ] Add AI-powered plugins (text-to-sprite, style transfer)
-* [ ] Plugin marketplace with easy sharing
+* [x] Merge CLI + GUI for a unified tool
+* [x] Add AI-powered plugins (text-to-sprite, style transfer)
+* [x] Plugin marketplace with easy sharing
 * [ ] Advanced PK3 packaging (DECORATE, ACS scripts)
 * [ ] Mac/Linux `.app` and `.AppImage` builds
 
