@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Enhanced Sprite Forge 2025 - Professional Doom Sprite Creation Toolkit
+Sprite Forge - Professional Doom Sprite Creation Toolkit
 ======================================================================
 
 Features:
