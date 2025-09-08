@@ -1,0 +1,18 @@
+{
+    "name": "Smart Auto-Crop",
+    "version": "1.0.0",
+    "author": "SpriteForge Built-in",
+    "category": "Transform",
+    "description": "Automatically crops the image by removing transparent borders.",
+    "entry_point": "__init__",
+    "dependencies": ["core.image_processor"],
+    "parameters": [
+        {
+            "name": "threshold",
+            "type": "int",
+            "default": 10,
+            "min": 0,
+            "max": 255
+        }
+    ]
+}

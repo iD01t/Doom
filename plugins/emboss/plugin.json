@@ -1,0 +1,10 @@
+{
+    "name": "Emboss",
+    "version": "1.0.0",
+    "author": "SpriteForge Built-in",
+    "category": "Filter",
+    "description": "Applies an emboss effect to the image.",
+    "entry_point": "__init__",
+    "dependencies": [],
+    "parameters": []
+}

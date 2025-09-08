@@ -1,0 +1,23 @@
+{
+    "name": "Fast Background Removal",
+    "version": "1.0.0",
+    "author": "SpriteForge Built-in",
+    "category": "Filter",
+    "description": "Removes a background color based on a tolerance value.",
+    "entry_point": "__init__",
+    "dependencies": ["core.image_processor"],
+    "parameters": [
+        {
+            "name": "r", "type": "int", "default": 0, "min": 0, "max": 255
+        },
+        {
+            "name": "g", "type": "int", "default": 0, "min": 0, "max": 255
+        },
+        {
+            "name": "b", "type": "int", "default": 0, "min": 0, "max": 255
+        },
+        {
+            "name": "tolerance", "type": "int", "default": 20, "min": 0, "max": 255
+        }
+    ]
+}

@@ -1,0 +1,10 @@
+Pillow
+numpy
+PyQt6
+opencv-python
+scikit-image
+matplotlib
+scipy
+requests
+# Optional for GPU acceleration:
+# cupy
