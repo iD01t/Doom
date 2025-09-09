@@ -5,28 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.0.0] - 2025-09-08
+## [3.1.0] - 2025-09-08
 
 ### Added
-- **Unified Codebase:** Merged the functionality of `sprite_forge_pro.py`, `sprite_forge_enhanced.py`, and `sprite_forge_ultimate.py` into a single, professional-grade script.
-- **Project System:** Implemented a robust project management system. Projects are saved as `.sfp` files (zipped archives) containing a `project.json` manifest and all image assets.
-- **Advanced Image Processing:** Added a comprehensive suite of image manipulation tools, including:
-    - Nine-patch generation, padding, and bleed control.
-    - Advanced color transformations (HSL, brightness/contrast, grayscale, color replacement).
-    - Glow and outline effects.
-    - Premultiplied alpha support.
-- **Undo/Redo Functionality:** Integrated a command-based undo/redo manager to support non-destructive editing.
-- **Plugin Architecture:** Created a flexible plugin system that can discover and run user-created plugins from a `plugins/` directory, with an API that gives plugins access to the core application engine.
-- **Expanded Export Formats:** Added support for WebP and AVIF image formats.
-- **Command-Line Interface (CLI):** Developed a powerful CLI for headless operation, allowing for batch processing, plugin execution, and sprite sheet packing from the terminal.
-- **Configuration System:** Settings can now be loaded from JSON, YAML, and environment variables.
-- **Comprehensive Test Suite:** Developed a `pytest` suite to ensure the stability and correctness of all major components.
+- **Stability & Polish:** Implemented comprehensive error handling, graceful plugin loading, and a file-based logging system.
+- **UX Upgrades:** Added keyboard shortcuts, improved canvas zooming/panning, and provided clear status messages for all operations.
+- **Headless/Batch Mode:** Introduced a command-line interface (`--batch`) for scripted image processing without the GUI.
+- **Self-Test Mode:** Added a `--selftest` argument to run automated end-to-end smoke tests.
+- **Dependency Checker:** The application now checks for required dependencies at startup and offers to install them.
+- **Settings Persistence:** Window size, export format, and sprite name are now saved between sessions.
+- **Packaging Scripts:** Included build scripts (`build_win.cmd`, `build_mac.sh`, `build_linux.sh`) and a PyInstaller spec file for creating distributable packages.
 
 ### Changed
-- **Authoritative Base:** Established `sprite_forge_pro.py` as the foundation and incrementally added features from other scripts and new requirements.
-- **Refactored Architecture:** The application is now built around a central `CoreEngine` that manages a `Project` object, providing a clean and scalable architecture.
-- **Sprite Sheet Packer:** Replaced the `rectpack` library dependency with a simpler, more reliable custom packing algorithm to resolve critical bugs encountered with the library in the execution environment.
+- **Image Pipeline:** Internal image handling is now consistently RGBA for more predictable processing.
+- **Export Logic:** PK3 and WAD export formats have been improved with better validation and user prompts.
+- **About Dialog:** The "About" dialog has been updated with the new version number and dependency information.
 
-### Removed
-- **`rectpack` Dependency:** The external `rectpack` library has been removed in favor of a custom implementation.
-- **Redundant Scripts:** The separate `sprite_forge_enhanced.py` and `sprite_forge_ultimate.py` files are no longer needed.
+### Fixed
+- **Canvas Rendering:** Corrected issues with the transparency checkerboard background and painter state.
+- **Plugin Previews:** Ensured that applying a plugin preview does not mutate the original image.
+- `auto_crop()` now works correctly with RGBA images.
