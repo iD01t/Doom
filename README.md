@@ -1,78 +1,113 @@
-# Sprite Forge Pro 2025
+# Sprite Forge Enhanced v3.1.0
 
-**Version:** 3.0.0
-**Author:** Sprite Forge Team (Refactored by Jules)
+**Sprite Forge Enhanced** is a professional-grade tool for creating and manipulating 2D game sprites. It features a rich graphical user interface, an extensible plugin system, advanced image processing capabilities, and powerful export options tailored for game development, including Doom engine formats.
 
-## 1. Overview
+This document provides a guide to installing, using, and building the application.
 
-Sprite Forge Pro 2025 is a state-of-the-art sprite and texture creation toolkit designed for professional game development and modding. It provides a comprehensive suite of tools for image processing, sprite sheet generation, and project management, accessible through both a graphical user interface (GUI) and a powerful command-line interface (CLI).
+## Table of Contents
 
-This version represents a complete architectural overhaul, unifying previously separate scripts into a single, robust, and extensible application.
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start (GUI)](#quick-start-gui)
+- [Command-Line Interface (CLI)](#command-line-interface-cli)
+  - [Batch Processing](#batch-processing)
+  - [Self-Test](#self-test)
+- [Building from Source](#building-from-source)
+- [Plugin System](#plugin-system)
 
-## 2. Key Features
+## Features
 
-- **Project-Based Workflow:** Manage all your assets within a single `.sfp` project file. This file bundles your images, animations, and settings into a convenient, portable package.
-- **Advanced Sprite Sheet Packing:** Generate optimized sprite sheets with a custom, reliable packing algorithm. Control padding and apply automatic bleed to prevent texture artifacts.
-- **Powerful Image Processing:** A rich set of tools to manipulate your images:
-    - Palette application (includes enhanced Doom palette)
-    - Color correction (brightness, contrast, HSL)
-    - Grayscale conversion
-    - Color replacement and keying
-    - Glow and outline effects
-- **Animation Support:** Define and manage sprite animations within your project.
-- **Extensible Plugin System:** Extend the application's functionality by creating your own Python plugins. A simple "Invert Colors" plugin is included as an example.
-- **Flexible Configuration:** Configure settings through `config.yaml`, `settings.json`, or environment variables.
-- **Undo/Redo:** Non-destructive workflow is supported by a robust undo/redo system.
-- **Multiple Export Formats:** Export images and sprite sheets to standard formats like PNG, GIF, WebP, and AVIF.
+*   **Modern GUI:** An intuitive PyQt6 interface for visual editing.
+*   **Advanced Canvas:** Zoom, pan, and grid features for precise control.
+*   **Image Processing:** A suite of built-in tools like Pixelate, Doom Palette, Enhance, Auto-crop, and Background Removal.
+*   **Plugin System:** Extend the application's functionality with custom plugins.
+*   **Game-Ready Exports:** Export to PNG, GIF, ZIP, and specialized game formats like PK3 (for Doom 3 / Quake 4) and WAD (directory-based for classic Doom).
+*   **Headless Operation:** Automate your workflow with a powerful command-line interface.
+*   **Built-in Self-Test:** Verify the application's integrity with a single command.
 
-## 3. Installation
+## Installation
 
-The script includes a dependency auto-installer that will attempt to install required Python packages when run. To disable this, set the environment variable `SPRITE_FORGE_NO_AUTO_INSTALL=1`.
+The application requires Python 3.8+ and the following packages: `PyQt6`, `Pillow`, `numpy`, `matplotlib`.
 
-The core dependencies are: `Pillow`, `numpy`, `PyQt6`, `PyYAML`, `scipy`.
+When you first run the application, it will check for these dependencies. If any are missing, it will prompt you to install them automatically.
 
-## 4. Usage
-
-Sprite Forge Pro can be run in two modes: GUI mode and Headless (CLI) mode.
-
-### 4.1. GUI Mode
-
-To launch the graphical user interface, simply run the script without any arguments:
-
+To manually install, run:
 ```bash
-python3 sprite_forge_pro.py
+pip install PyQt6 Pillow numpy matplotlib
 ```
 
-This will open the main application window, from which you can manage your project, process images, and generate sprite sheets.
+## Quick Start (GUI)
 
-### 4.2. Headless / CLI Mode
+To launch the graphical user interface, run the script from your terminal:
 
-The command-line interface is ideal for automation and batch processing.
+```bash
+python3 sprite_forge_enhanced.py
+```
+
+1.  Click **"Open Image"** to load a sprite.
+2.  Use the **Plugin Selection** panel on the left to choose an effect. Adjust its parameters and click **"Preview"** or **"Apply"**.
+3.  Use the **Quick Tools** for common operations.
+4.  Use the **Export Options** on the right to select a format and sprite name.
+5.  Click **"Export"** to save your work in the chosen format.
+
+## Command-Line Interface (CLI)
+
+The application can be run from the command line for automation and testing.
+
+### Batch Processing
+
+The `--batch` flag allows you to run a sequence of image processing operations on an input file and save the result without opening the GUI.
 
 **Synopsis:**
 ```bash
-python3 sprite_forge_pro.py --headless --input <path> --output <path> [--pack] [--run-plugin <name>]
+python3 sprite_forge_enhanced.py --batch \
+  --input <path> \
+  --ops "op1:param=val;op2" \
+  --export <FORMAT> \
+  --sprite-name <name> \
+  --out <path>
 ```
 
 **Arguments:**
-- `--headless`: (Required) Run in command-line mode without launching the GUI.
-- `--input <path>`: (Required) Path to the source assets. This can be:
-    - A directory of images (`/path/to/images/`).
-    - A project file (`/path/to/project.sfp`).
-- `--output <path>`: (Required for packing) The base path for the output files (e.g., `/path/to/my_sheet`). The file extension will be added automatically.
-- `--pack`: A flag that triggers the sprite sheet packing process.
-- `--run-plugin <name>`: The name of a plugin to execute on the project (e.g., `"Invert Colors"`).
+*   `--input`: Path to the source image.
+*   `--ops`: A semicolon-separated string of operations.
+    *   Each operation can have colon-separated parameters (e.g., `pixelate:factor=2`).
+    *   Parameters are comma-separated key-value pairs (e.g., `enhance:brightness=1.5,contrast=1.2`).
+    *   Available ops: `pixelate`, `doom_palette`, `enhance`, `auto_crop`.
+*   `--export`: The export format (e.g., `PNG`, `PK3`, `WAD`, `GIF`, `ZIP`).
+*   `--sprite-name`: The internal name for the sprite, used by PK3 and WAD formats.
+*   `--out`: The path to the output file or directory.
 
-**Example: Pack a directory of images into a sprite sheet**
+**Example:**
 ```bash
-python3 sprite_forge_pro.py --headless --input ./my_sprites --output ./sheets/my_sheet --pack
+python3 sprite_forge_enhanced.py --batch \
+  --input "my_sprite.png" \
+  --ops "pixelate:factor=2;enhance:brightness=1.2" \
+  --export "PK3" \
+  --sprite-name "IMPX0" \
+  --out "dist/my_sprite.pk3"
 ```
 
-## 5. Plugin Development
+### Self-Test
 
-To create your own plugin:
-1. Create a new Python file in the `plugins/` directory.
-2. Define a class that inherits from `BasePlugin`.
-3. Set the `info` class attribute with your plugin's metadata.
-4. Implement the `run(self, **kwargs)` method. This method has access to the core engine via `self.core`.
-5. The application will automatically discover and load your plugin on startup.
+The `--selftest` flag runs a built-in suite of smoke tests to ensure the core functionality is working correctly. It will generate a test image, process it, export it to all formats in a temporary directory, and report the results.
+
+```bash
+python3 sprite_forge_enhanced.py --selftest
+```
+On success, the script will exit with code 0. On failure, it will exit with a non-zero code.
+
+## Building from Source
+
+Build scripts and a PyInstaller spec file are provided to package the application into a standalone executable for Windows, macOS, and Linux.
+
+1.  **Install PyInstaller:** `pip install pyinstaller`
+2.  **Run the build script** for your operating system:
+    *   **Windows:** `build_win.cmd`
+    *   **macOS:** `sh build_mac.sh`
+    *   **Linux:** `sh build_linux.sh`
+3.  The final executable will be located in the `dist/` directory.
+
+## Plugin System
+
+The plugin system is not yet fully documented for external developers. You can find examples of the built-in plugins within the `sprite_forge_enhanced.py` script.

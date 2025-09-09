@@ -18,36 +18,19 @@ from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 import traceback
+import bootstrap
+import argparse
+import io
+import shutil
 
 # Core dependencies
-try:
-    from PIL import Image, ImageFilter, ImageEnhance, ImageOps, ImageDraw, ImageFont
-    import numpy as np
-    HAS_PIL = True
-except ImportError:
-    HAS_PIL = False
-    print("PIL/Pillow not found. Installing...")
-    import subprocess
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "pillow", "numpy"])
-    from PIL import Image, ImageFilter, ImageEnhance, ImageOps, ImageDraw, ImageFont
-    import numpy as np
-    HAS_PIL = True
+from PIL import Image, ImageFilter, ImageEnhance, ImageOps, ImageDraw, ImageFont
+import numpy as np
 
 # GUI Framework
-try:
-    from PyQt6.QtWidgets import *
-    from PyQt6.QtCore import *
-    from PyQt6.QtGui import *
-    HAS_PYQT6 = True
-except ImportError:
-    HAS_PYQT6 = False
-    print("PyQt6 not found. Installing...")
-    import subprocess
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "PyQt6"])
-    from PyQt6.QtWidgets import *
-    from PyQt6.QtCore import *
-    from PyQt6.QtGui import *
-    HAS_PYQT6 = True
+from PyQt6.QtWidgets import *
+from PyQt6.QtCore import *
+from PyQt6.QtGui import *
 
 # Optional advanced dependencies
 try:
@@ -63,23 +46,19 @@ try:
 except ImportError:
     HAS_SKIMAGE = False
 
-try:
-    import matplotlib
-    matplotlib.use('Agg')  # Prevent Qt conflicts
-    import matplotlib.pyplot as plt
-    HAS_MATPLOTLIB = True
-except ImportError:
-    HAS_MATPLOTLIB = False
+import matplotlib
+matplotlib.use('Agg')  # Prevent Qt conflicts
+import matplotlib.pyplot as plt
 
 try:
     import scipy
     from scipy import ndimage, signal
-    HAS_SCIPY = False
+    HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
 
 # Application constants
-__version__ = "3.0.0"
+__version__ = "3.1.0"
 APP_NAME = "Sprite Forge Enhanced"
 ORG_NAME = "SpriteForge"
 APP_KEY = "sprite_forge_enhanced"
@@ -170,12 +149,16 @@ class ImageProcessor:
     
     @staticmethod
     def apply_doom_palette(image: Image.Image) -> Image.Image:
-        """Apply Doom's color palette to image."""
-        # Convert to RGB if needed
-        if image.mode != 'RGB':
-            image = image.convert('RGB')
+        """
+        Apply a simplified Doom-like color palette to an image while preserving transparency.
+        Note: This is not a 1:1 replica of the original Doom engine's color quantization.
+        """
+        if image.mode != 'RGBA':
+            image = image.convert('RGBA')
         
-        # Create Doom-like palette (simplified)
+        rgb_image = image.convert('RGB')
+        alpha_channel = image.split()[-1]
+
         doom_colors = [
             (0, 0, 0), (31, 23, 11), (23, 15, 7), (75, 75, 75),
             (255, 255, 255), (27, 27, 27), (47, 47, 47), (67, 67, 67),
@@ -183,29 +166,24 @@ class ImageProcessor:
             (167, 167, 167), (187, 187, 187), (207, 207, 207), (227, 227, 227)
         ]
         
-        # Simple palette mapping
-        result = Image.new('RGB', image.size)
-        pixels = result.load()
-        img_pixels = image.load()
+        result_rgb = Image.new('RGB', rgb_image.size)
+        pixels = result_rgb.load()
+        img_pixels = rgb_image.load()
         
-        for y in range(image.size[1]):
-            for x in range(image.size[0]):
+        for y in range(rgb_image.size[1]):
+            for x in range(rgb_image.size[0]):
                 r, g, b = img_pixels[x, y]
-                # Find closest Doom color
                 min_dist = float('inf')
                 closest_color = (0, 0, 0)
-                
                 for doom_color in doom_colors:
-                    dist = ((r - doom_color[0])**2 + 
-                           (g - doom_color[1])**2 + 
-                           (b - doom_color[2])**2)**0.5
+                    dist = ((r - doom_color[0])**2 + (g - doom_color[1])**2 + (b - doom_color[2])**2)
                     if dist < min_dist:
                         min_dist = dist
                         closest_color = doom_color
-                
                 pixels[x, y] = closest_color
         
-        return result
+        result_rgb.putalpha(alpha_channel)
+        return result_rgb
     
     @staticmethod
     def create_sprite_rotations(image: Image.Image, angles: List[float]) -> List[Image.Image]:
@@ -236,20 +214,24 @@ class ImageProcessor:
     
     @staticmethod
     def auto_crop(image: Image.Image, threshold: int = 10) -> Image.Image:
-        """Automatically crop transparent/empty borders."""
-        if image.mode == 'RGBA':
-            # Get alpha channel
-            alpha = image.split()[-1]
-            bbox = alpha.getbbox()
-        else:
-            # Convert to RGBA for transparency check
-            rgba = image.convert('RGBA')
-            alpha = rgba.split()[-1]
-            bbox = alpha.getbbox()
+        """
+        Automatically crop borders based on alpha channel transparency.
+        Uses a threshold to determine the alpha cutoff.
+        """
+        if image.mode != 'RGBA':
+            image = image.convert('RGBA')
+
+        np_image = np.array(image)
+        alpha = np_image[:, :, 3]
+        rows = np.any(alpha > threshold, axis=1)
+        cols = np.any(alpha > threshold, axis=0)
         
-        if bbox:
-            return image.crop(bbox)
-        return image
+        if np.any(rows) and np.any(cols):
+            ymin, ymax = np.where(rows)[0][[0, -1]]
+            xmin, xmax = np.where(cols)[0][[0, -1]]
+            return image.crop((xmin, ymin, xmax + 1, ymax + 1))
+        else:
+            return image
     
     @staticmethod
     def remove_background(image: Image.Image, tolerance: int = 30) -> Image.Image:
@@ -574,10 +556,9 @@ class ModernImageCanvas(QWidget):
     
     def paintEvent(self, event: QPaintEvent):
         """Custom paint event."""
-        painter = QPainter(self)
+        painter = QPainter()
         try:
             painter.begin(self)
-            
             # Fill background
             if self.show_transparency:
                 self._draw_transparency_background(painter)
@@ -603,10 +584,9 @@ class ModernImageCanvas(QWidget):
                 
                 if self.show_pixel_grid and self.zoom_factor >= 4:
                     self._draw_pixel_grid(painter, x, y, scaled_pixmap.width(), scaled_pixmap.height())
-            
-            painter.end()
         except Exception as e:
-            logging.error(f"Paint error: {e}")
+            logging.error(f"Paint error: {e}", exc_info=True)
+        finally:
             painter.end()
     
     def _draw_transparency_background(self, painter: QPainter):
@@ -660,12 +640,32 @@ class ModernImageCanvas(QWidget):
             self.setCursor(Qt.CursorShape.ArrowCursor)
     
     def mouseMoveEvent(self, event: QMouseEvent):
-        """Handle mouse move events."""
-        if self.last_pan_pos and self.image:
-            delta = event.pos() - self.last_pan_pos
-            self.pan_offset += delta
-            self.last_pan_pos = event.pos()
-            self.update()
+        """Handle mouse move events with clamping."""
+        if not self.last_pan_pos or not self.image:
+            return
+
+        delta = event.pos() - self.last_pan_pos
+        new_pan_offset = self.pan_offset + delta
+        self.last_pan_pos = event.pos()
+
+        # Get image and viewport dimensions
+        scaled_w = self.image.width() * self.zoom_factor
+        scaled_h = self.image.height() * self.zoom_factor
+        viewport_w = self.width()
+        viewport_h = self.height()
+
+        # Calculate maximum pan values. Allow a small margin (e.g., 50px) to go off-screen.
+        margin = 50
+        max_pan_x = max(0, (scaled_w / 2) + (viewport_w / 2) - margin)
+        max_pan_y = max(0, (scaled_h / 2) + (viewport_h / 2) - margin)
+
+        # Clamp the new pan offset
+        clamped_x = max(-max_pan_x, min(new_pan_offset.x(), max_pan_x))
+        clamped_y = max(-max_pan_y, min(new_pan_offset.y(), max_pan_y))
+
+        self.pan_offset = QPoint(int(clamped_x), int(clamped_y))
+
+        self.update()
     
     def wheelEvent(self, event: QWheelEvent):
         """Handle mouse wheel events for zooming."""
@@ -1123,6 +1123,7 @@ class SpriteForgeMainWindow(QMainWindow):
         
         # Main canvas
         self.canvas = ModernImageCanvas()
+        self.canvas.zoomChanged.connect(self.on_canvas_zoom_changed)
         center_layout.addWidget(self.canvas)
         
         main_layout.addWidget(center_panel, 3)
@@ -1209,9 +1210,38 @@ class SpriteForgeMainWindow(QMainWindow):
         reset_action = QAction("&Reset Image", self)
         reset_action.triggered.connect(self.reset_image)
         edit_menu.addAction(reset_action)
+
+        edit_menu.addSeparator()
+
+        reset_view_action = QAction("Reset &View", self)
+        reset_view_action.setShortcut("Ctrl+0")
+        reset_view_action.triggered.connect(self.reset_canvas_view)
+        edit_menu.addAction(reset_view_action)
         
         # Tools menu
         tools_menu = menubar.addMenu("&Tools")
+
+        pixelate_action = QAction("&Pixelate", self)
+        pixelate_action.setShortcut("Ctrl+1")
+        pixelate_action.triggered.connect(lambda: self.apply_quick_tool("pixelate"))
+        tools_menu.addAction(pixelate_action)
+
+        doom_palette_action = QAction("&Doom Palette", self)
+        doom_palette_action.setShortcut("Ctrl+2")
+        doom_palette_action.triggered.connect(lambda: self.apply_quick_tool("doom_palette"))
+        tools_menu.addAction(doom_palette_action)
+
+        enhance_action = QAction("&Enhance", self)
+        enhance_action.setShortcut("Ctrl+3")
+        enhance_action.triggered.connect(lambda: self.apply_quick_tool("enhance"))
+        tools_menu.addAction(enhance_action)
+
+        autocrop_action = QAction("&Auto-crop", self)
+        autocrop_action.setShortcut("Ctrl+4")
+        autocrop_action.triggered.connect(lambda: self.apply_quick_tool("auto_crop"))
+        tools_menu.addAction(autocrop_action)
+
+        tools_menu.addSeparator()
         
         preferences_action = QAction("&Preferences...", self)
         preferences_action.triggered.connect(self.show_preferences)
@@ -1289,14 +1319,18 @@ class SpriteForgeMainWindow(QMainWindow):
             self, "Open Image", "", 
             "Image Files (*.png *.jpg *.jpeg *.bmp *.gif *.tiff)"
         )
+        if not filename:
+            self.statusbar.showMessage("Open cancelled.", 5000)
+            return
         
-        if filename:
-            try:
-                image = Image.open(filename)
-                self.set_current_image(image)
-                self.statusbar.showMessage(f"Opened: {filename}")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to open image: {e}")
+        try:
+            image = Image.open(filename)
+            self.set_current_image(image)
+            self.statusbar.showMessage(f"Successfully opened {Path(filename).name}", 5000)
+        except Exception as e:
+            logging.error(f"Failed to open image {filename}", exc_info=True)
+            QMessageBox.critical(self, "Error Opening File", f"Could not open the image file.\\n\\nError: {e}")
+            self.statusbar.showMessage(f"Failed to open {Path(filename).name}", 5000)
     
     def save_image(self):
         """Save current image."""
@@ -1307,13 +1341,17 @@ class SpriteForgeMainWindow(QMainWindow):
             self, "Save Image", "", 
             "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)"
         )
-        
-        if filename:
-            try:
-                self.current_image.save(filename)
-                self.statusbar.showMessage(f"Saved: {filename}")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to save image: {e}")
+        if not filename:
+            self.statusbar.showMessage("Save cancelled.", 5000)
+            return
+
+        try:
+            self.current_image.save(filename)
+            self.statusbar.showMessage(f"Successfully saved to {Path(filename).name}", 5000)
+        except Exception as e:
+            logging.error(f"Failed to save image to {filename}", exc_info=True)
+            QMessageBox.critical(self, "Error Saving File", f"Could not save the image file.\\n\\nError: {e}")
+            self.statusbar.showMessage(f"Failed to save {Path(filename).name}", 5000)
     
     def export_image(self):
         """Export image in selected format."""
@@ -1327,66 +1365,81 @@ class SpriteForgeMainWindow(QMainWindow):
             self, f"Export as {format_name}", f"{sprite_name}.{format_name.lower()}",
             f"{format_name} Files (*.{format_name.lower()})"
         )
-        
-        if filename:
-            try:
-                self.export_manager.export_sprite(
-                    self.current_image, filename, format_name,
-                    sprite_name=sprite_name
-                )
-                self.statusbar.showMessage(f"Exported: {filename}")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to export: {e}")
+        if not filename:
+            self.statusbar.showMessage("Export cancelled.", 5000)
+            return
+
+        try:
+            self.export_manager.export_sprite(
+                self.current_image, filename, format_name,
+                sprite_name=sprite_name
+            )
+            self.statusbar.showMessage(f"Successfully exported to {Path(filename).name}", 5000)
+            QMessageBox.information(self, "Export Successful", f"Exported to:\n{filename}")
+        except FileExistsError as e:
+            reply = QMessageBox.question(self, 'Directory Exists',
+                                         f"{e}\n\nDo you want to overwrite its contents?",
+                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                         QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.Yes:
+                try:
+                    shutil.rmtree(Path(filename).with_suffix(''))
+                    self.export_image() # Try again
+                except Exception as e_overwrite:
+                    logging.error(f"Failed to overwrite directory", exc_info=True)
+                    QMessageBox.critical(self, "Overwrite Error", f"Could not remove existing directory.\n\nError: {e_overwrite}")
+            else:
+                self.statusbar.showMessage("Export cancelled.", 5000)
+        except ValueError as e:
+            logging.warning(f"User error during export: {e}")
+            QMessageBox.warning(self, "Export Warning", str(e))
+            self.statusbar.showMessage("Export failed due to invalid input.", 5000)
+        except Exception as e:
+            logging.error(f"Failed to export to {filename}", exc_info=True)
+            QMessageBox.critical(self, "Export Error", f"An unexpected error occurred during export.\n\nError: {e}")
+            self.statusbar.showMessage(f"Failed to export {Path(filename).name}", 5000)
     
     def set_current_image(self, image: Image.Image):
-        """Set current image and update UI."""
-        # Save to undo stack
+        """Set current image and update UI, ensuring it is in RGBA format."""
         if self.current_image is not None:
             self.undo_stack.append(self.current_image.copy())
             self.undo_btn.setEnabled(True)
         
+        if image.mode != "RGBA":
+            image = image.convert("RGBA")
+
         self.current_image = image
-        self.original_image = image.copy()
+        if self.original_image is None:
+            self.original_image = image.copy()
         
-        # Update canvas
         self.canvas.set_image(image)
-        
-        # Update properties
         self.width_label.setText(str(image.width))
         self.height_label.setText(str(image.height))
         self.mode_label.setText(image.mode)
-        
-        # Enable buttons
         self.save_btn.setEnabled(True)
         self.export_btn.setEnabled(True)
-        
-        # Clear redo stack
         self.redo_stack.clear()
         self.redo_btn.setEnabled(False)
     
     def handle_plugin(self, action: str, params: dict):
         """Handle plugin application."""
-        if not self.current_image:
-            return
-        
-        plugin_name = self.plugin_widget.current_plugin.info.name
-        plugin = self.plugin_manager.get_plugin(plugin_name)
-        
-        if not plugin:
-            return
+        if not self.current_image: return
+        plugin = self.plugin_widget.current_plugin
+        if not plugin: return
         
         try:
             if action == "preview":
-                # Create preview
-                preview_image = plugin.process(self.current_image, **params)
+                preview_image = plugin.process(self.current_image.copy(), **params)
                 self.canvas.set_image(preview_image)
+                self.statusbar.showMessage(f"Previewing {plugin.info.name}", 2000)
             elif action == "apply":
-                # Apply effect
                 result_image = plugin.process(self.current_image, **params)
                 self.set_current_image(result_image)
-                self.statusbar.showMessage(f"Applied {plugin_name}")
+                self.statusbar.showMessage(f"Applied {plugin.info.name}", 5000)
         except Exception as e:
-            QMessageBox.critical(self, "Plugin Error", f"Plugin failed: {e}")
+            logging.error(f"Plugin {plugin.info.name} failed", exc_info=True)
+            QMessageBox.critical(self, "Plugin Error", f"The plugin {plugin.info.name} failed to execute.\\n\\nError: {e}")
+            self.statusbar.showMessage(f"Plugin {plugin.info.name} failed", 5000)
     
     def apply_quick_tool(self, tool_name: str):
         """Apply quick tool effect."""
@@ -1394,6 +1447,7 @@ class SpriteForgeMainWindow(QMainWindow):
             return
         
         try:
+            self.statusbar.showMessage(f"Applying {tool_name}...", 2000)
             if tool_name == 'pixelate':
                 result = ImageProcessor.pixelate_image(self.current_image, 2)
             elif tool_name == 'doom_palette':
@@ -1406,9 +1460,11 @@ class SpriteForgeMainWindow(QMainWindow):
                 return
             
             self.set_current_image(result)
-            self.statusbar.showMessage(f"Applied {tool_name}")
+            self.statusbar.showMessage(f"Successfully applied {tool_name}", 5000)
         except Exception as e:
-            QMessageBox.critical(self, "Tool Error", f"Tool failed: {e}")
+            logging.error(f"Quick tool '{tool_name}' failed", exc_info=True)
+            QMessageBox.critical(self, "Tool Error", f"The tool '{tool_name}' failed to execute.\n\nError: {e}")
+            self.statusbar.showMessage(f"Tool {tool_name} failed", 5000)
     
     def undo(self):
         """Undo last action."""
@@ -1453,49 +1509,192 @@ class SpriteForgeMainWindow(QMainWindow):
         """Handle zoom slider change."""
         zoom_factor = value / 100.0
         self.canvas.set_zoom(zoom_factor)
+
+    def on_canvas_zoom_changed(self, factor: float):
+        """Update the zoom slider when the canvas zoom changes, avoiding feedback loops."""
+        self.zoom_slider.blockSignals(True)
+        self.zoom_slider.setValue(int(factor * 100))
+        self.zoom_slider.blockSignals(False)
     
     def show_preferences(self):
         """Show preferences dialog."""
         QMessageBox.information(self, "Preferences", "Preferences dialog not implemented yet.")
     
     def show_about(self):
-        """Show about dialog."""
-        QMessageBox.about(self, f"About {APP_NAME}", 
-                         f"{APP_NAME} v{__version__}\n\n{APP_DESCRIPTION}")
+        """Show about dialog with dependency info."""
+        core_deps = ["PyQt6", "Pillow", "NumPy", "Matplotlib"]
+        optional_deps = []
+        if HAS_OPENCV: optional_deps.append("OpenCV")
+        if HAS_SKIMAGE: optional_deps.append("scikit-image")
+        if HAS_SCIPY: optional_deps.append("SciPy")
+
+        about_text = f"""
+        <h2>{APP_NAME} v{__version__}</h2>
+        <p>{APP_DESCRIPTION}</p>
+        <p>Copyright &copy; 2025 The Sprite Forge Team. All rights reserved.</p>
+        <hr>
+        <h4>Core Dependencies:</h4>
+        <p>{', '.join(core_deps)}</p>
+        <h4>Optional Dependencies:</h4>
+        <p>{', '.join(optional_deps) if optional_deps else 'None'}</p>
+        """
+        QMessageBox.about(self, f"About {APP_NAME}", about_text)
     
     def closeEvent(self, event):
         """Handle application close event."""
         self.save_settings()
         event.accept()
 
+def run_self_test():
+    """Runs a series of automated smoke tests."""
+    print("--- Running Self-Test Suite ---")
+    failures = 0
+    
+    def test_step(name, func):
+        nonlocal failures
+        print(f"[*] Testing: {name}... ", end='', flush=True)
+        try:
+            func()
+            print("PASS")
+            return True
+        except Exception as e:
+            print("FAIL")
+            logging.error(f"Self-test failed for step '{name}'", exc_info=True)
+            failures += 1
+            return False
+
+    temp_image = None
+    def step_generate_image():
+        nonlocal temp_image
+        img = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        draw.rectangle((0, 0, 31, 63), fill=(255, 0, 0, 255))
+        draw.rectangle((32, 0, 63, 63), fill=(0, 0, 255, 128))
+        temp_image = img
+        assert temp_image is not None
+    test_step("Image Generation", step_generate_image)
+
+    processed_image = None
+    def step_process_image():
+        nonlocal processed_image
+        img = temp_image.copy()
+        img = ImageProcessor.pixelate_image(img, 2)
+        img = ImageProcessor.apply_doom_palette(img)
+        img = ImageProcessor.enhance_sprite(img, brightness=1.1, contrast=1.1)
+        img = ImageProcessor.auto_crop(img, threshold=5)
+        processed_image = img
+        assert processed_image is not None
+    if temp_image: test_step("Image Processing", step_process_image)
+
+    temp_dir = None
+    def step_export_files():
+        nonlocal temp_dir
+        if not processed_image:
+            raise RuntimeError("Cannot run export test, processing failed.")
+
+        temp_dir = Path(tempfile.mkdtemp(prefix="sfe_selftest_"))
+        export_manager = ExportManager()
+        formats_to_test = {"PNG":"t.png","GIF":"t.gif","PK3":"t.pk3","WAD":"t.wad","ZIP":"t.zip"}
+        for fmt, filename in formats_to_test.items():
+            out_path = temp_dir / filename
+            export_manager.export_sprite(processed_image, str(out_path), fmt, sprite_name="TEST")
+            if fmt == "WAD":
+                wad_dir = out_path.with_suffix('')
+                assert wad_dir.is_dir() and any(wad_dir.iterdir())
+            else:
+                assert out_path.exists() and out_path.stat().st_size > 0
+    if processed_image: test_step("File Exporting", step_export_files)
+
+    if temp_dir:
+        try:
+            shutil.rmtree(temp_dir)
+        except Exception as e:
+            logging.error(f"Failed to clean up temp directory {temp_dir}", exc_info=True)
+
+    print("--- Self-Test Complete ---")
+    if failures == 0:
+        print(f"Result: ALL TESTS PASSED")
+    else:
+        print(f"Result: {failures} TEST(S) FAILED")
+        sys.exit(1)
+
+def run_batch_mode(args):
+    """Runs the application in non-interactive batch processing mode."""
+    if not all([args.input, args.ops, args.export, args.out]):
+        print("Error: --input, --ops, --export, and --out are all required for batch mode.", file=sys.stderr)
+        sys.exit(1)
+    
+    print(f"--- Running Batch Mode ---")
+    try:
+        image = Image.open(args.input).convert('RGBA')
+        print(f"[+] Input: {args.input}")
+        print(f"[+] Operations: {args.ops}")
+
+        for op_str in args.ops.split(';'):
+            if not op_str: continue
+
+            op_name, *param_parts = op_str.split(':')
+            params = {}
+            if param_parts:
+                for p in param_parts[0].split(','):
+                    key, value = p.split('=')
+                    try:
+                        if '.' in value: params[key] = float(value)
+                        else: params[key] = int(value)
+                    except ValueError: params[key] = value
+
+            method_map = {'pixelate':'pixelate_image', 'doom_palette':'apply_doom_palette', 'enhance':'enhance_sprite', 'auto_crop':'auto_crop'}
+            method_name = method_map.get(op_name)
+
+            if not method_name:
+                print(f"Error: Unknown operation '{op_name}'", file=sys.stderr)
+                sys.exit(1)
+
+            processor_method = getattr(ImageProcessor, method_name)
+            print(f"    - Applying {op_name} with params: {params}")
+            image = processor_method(image, **params)
+
+        print(f"[+] Exporting to {args.out} as {args.export}")
+        ExportManager().export_sprite(image, args.out, args.export, sprite_name=args.sprite_name)
+
+        print(f"--- Batch Mode Complete ---")
+        print(f"Success! Output written to {args.out}")
+    except FileNotFoundError:
+        print(f"Error: Input file not found at '{args.input}'", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}", file=sys.stderr)
+        logging.error("Batch mode failed", exc_info=True)
+        sys.exit(1)
+
 def main():
     """Main application entry point."""
-    # Setup logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    bootstrap.check_dependencies()
     
-    # Check command line arguments
-    if len(sys.argv) > 1:
-        if sys.argv[1] == '--version':
-            print(f"{APP_NAME} v{__version__}")
-            return
-        elif sys.argv[1] == '--help':
-            print(f"Usage: {sys.argv[0]} [--version|--help]")
-            print(f"  --version: Show version information")
-            print(f"  --help: Show this help message")
-            return
-    
-    # Create and run application
-    app = QApplication(sys.argv)
-    app.setApplicationName(APP_NAME)
-    app.setOrganizationName(ORG_NAME)
-    
-    window = SpriteForgeMainWindow()
-    window.show()
-    
-    sys.exit(app.exec())
+    parser = argparse.ArgumentParser(description=f"{APP_NAME} v{__version__}")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument("--selftest", action="store_true", help="Run a series of automated self-tests.")
+    parser.add_argument("--batch", action="store_true", help="Run in non-interactive batch mode.")
+    parser.add_argument("--input", type=str, help="Input file path for batch mode.")
+    parser.add_argument("--ops", type=str, help="Semicolon-separated operations for batch mode (e.g., \"pixelate:factor=2;enhance:brightness=1.2\").")
+    parser.add_argument("--export", type=str, help="Export format for batch mode (e.g., \"PNG\", \"PK3\").")
+    parser.add_argument("--sprite-name", type=str, default="SPRITE", help="Sprite name for formats that use it (PK3, WAD).")
+    parser.add_argument("--out", type=str, help="Output file path for batch mode.")
+    args = parser.parse_args()
+
+    bootstrap.setup_logging()
+
+    if args.selftest:
+        run_self_test()
+    elif args.batch:
+        run_batch_mode(args)
+    else:
+        app = QApplication(sys.argv)
+        app.setApplicationName(APP_NAME)
+        app.setOrganizationName(ORG_NAME)
+        window = SpriteForgeMainWindow()
+        window.show()
+        sys.exit(app.exec())
 
 if __name__ == "__main__":
     main()
