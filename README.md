@@ -1,210 +1,78 @@
-# Sprite Forge 2025
+# Sprite Forge Pro 2025
 
-**Professional Doom Sprite Creation Toolkit**
+**Version:** 3.0.0
+**Author:** Sprite Forge Team (Refactored by Jules)
 
-![Banner](docs/banner.png) <!-- optional placeholder for banner -->
+## 1. Overview
 
-Sprite Forge 2025 is the **all-in-one solution** for creating, editing, and packaging sprites for Doom, Doom II, and GZDoom in 2025.
-It combines the power of Photoshop-style editing, WAD/PK3 packaging, and batch slicing into a single modern, plugin-driven application.
+Sprite Forge Pro 2025 is a state-of-the-art sprite and texture creation toolkit designed for professional game development and modding. It provides a comprehensive suite of tools for image processing, sprite sheet generation, and project management, accessible through both a graphical user interface (GUI) and a powerful command-line interface (CLI).
 
-Built with **PyQt6**, **Pillow**, and **NumPy**, this tool is designed for both modders and professionals who want to streamline the entire sprite workflow.
+This version represents a complete architectural overhaul, unifying previously separate scripts into a single, robust, and extensible application.
 
----
+## 2. Key Features
 
-## ✨ Features
+- **Project-Based Workflow:** Manage all your assets within a single `.sfp` project file. This file bundles your images, animations, and settings into a convenient, portable package.
+- **Advanced Sprite Sheet Packing:** Generate optimized sprite sheets with a custom, reliable packing algorithm. Control padding and apply automatic bleed to prevent texture artifacts.
+- **Powerful Image Processing:** A rich set of tools to manipulate your images:
+    - Palette application (includes enhanced Doom palette)
+    - Color correction (brightness, contrast, HSL)
+    - Grayscale conversion
+    - Color replacement and keying
+    - Glow and outline effects
+- **Animation Support:** Define and manage sprite animations within your project.
+- **Extensible Plugin System:** Extend the application's functionality by creating your own Python plugins. A simple "Invert Colors" plugin is included as an example.
+- **Flexible Configuration:** Configure settings through `config.yaml`, `settings.json`, or environment variables.
+- **Undo/Redo:** Non-destructive workflow is supported by a robust undo/redo system.
+- **Multiple Export Formats:** Export images and sprite sheets to standard formats like PNG, GIF, WebP, and AVIF.
 
-* **Modern PyQt6 GUI**
+## 3. Installation
 
-  * Dark theme
-  * Zoom/pan canvas with transparency checkerboard
-  * Tabs for live preview and logs
-  * Toolbar for quick zoom/reset
+The script includes a dependency auto-installer that will attempt to install required Python packages when run. To disable this, set the environment variable `SPRITE_FORGE_NO_AUTO_INSTALL=1`.
 
-* **Full Sprite Workflow**
+The core dependencies are: `Pillow`, `numpy`, `PyQt6`, `PyYAML`, `scipy`.
 
-  * Auto-slice and combine frames
-  * Pixelate and quantize to Doom palette
-  * Apply outlines, recolors, shadows
-  * Export directly to **PK3** or **WAD layout**
+## 4. Usage
 
-* **Plugin System (JSON-based)**
+Sprite Forge Pro can be run in two modes: GUI mode and Headless (CLI) mode.
 
-  * Drop `.json` configs into the `plugins/` folder
-  * Supports plugin packs distributed as `.zip`
-  * Auto-loads new tools without touching the core
-  * Example plugins included:
+### 4.1. GUI Mode
 
-    * **AI Recolor** (HSV shifting, skin-tone preservation)
-    * **3D Preview** (isometric sprite projection)
-    * **Edge Enhancement** (sharpen and enhance details)
-    * **OpenAI/Claude/Gemini Recolor** (prompt-driven palettes)
-
-* **Unified CLI + GUI**
-
-  * Run `python sprite_forge.py` for the GUI
-  * Run `python sprite_forge.py --input in.png --plugin "AI Recolor" --output out.png` for automation
-
-* **Smart Export**
-
-  * PK3 export with `TEXTURES` lump and ZScript stub
-  * WAD layout with auto-mirrored rotations and JSON info file
-
-* **Persistence**
-
-  * Remembers last sprite name, type, and window geometry via `QSettings`
-
-* **Cross-Platform**
-
-  * Works on Windows, macOS, and Linux (X11 with Qt)
-
----
-
-## 📦 Installation
-
-Clone the repo and run directly:
+To launch the graphical user interface, simply run the script without any arguments:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/sprite-forge-2025.git
-cd sprite-forge-2025
-python sprite_forge.py
+python3 sprite_forge_pro.py
 ```
 
-The script auto-installs dependencies if missing:
+This will open the main application window, from which you can manage your project, process images, and generate sprite sheets.
 
-* [PyQt6](https://pypi.org/project/PyQt6/)
-* [Pillow](https://pypi.org/project/pillow/)
-* [NumPy](https://pypi.org/project/numpy/)
+### 4.2. Headless / CLI Mode
 
-Manual install:
+The command-line interface is ideal for automation and batch processing.
 
+**Synopsis:**
 ```bash
-pip install PyQt6 pillow numpy
+python3 sprite_forge_pro.py --headless --input <path> --output <path> [--pack] [--run-plugin <name>]
 ```
 
----
+**Arguments:**
+- `--headless`: (Required) Run in command-line mode without launching the GUI.
+- `--input <path>`: (Required) Path to the source assets. This can be:
+    - A directory of images (`/path/to/images/`).
+    - A project file (`/path/to/project.sfp`).
+- `--output <path>`: (Required for packing) The base path for the output files (e.g., `/path/to/my_sheet`). The file extension will be added automatically.
+- `--pack`: A flag that triggers the sprite sheet packing process.
+- `--run-plugin <name>`: The name of a plugin to execute on the project (e.g., `"Invert Colors"`).
 
-## 🚀 Usage
-
-### Run the GUI
-
+**Example: Pack a directory of images into a sprite sheet**
 ```bash
-python sprite_forge.py
+python3 sprite_forge_pro.py --headless --input ./my_sprites --output ./sheets/my_sheet --pack
 ```
 
-1. Load a PNG/JPG/BMP sprite sheet.
-2. Adjust **Sprite Settings** (name, type, size).
-3. Apply processing (pixelate, Doom palette, transparency).
-4. Preview results instantly.
-5. Export as **PK3** or **WAD layout**.
+## 5. Plugin Development
 
-### Run from the CLI
-
-```bash
-python sprite_forge.py --input input.png --plugin "AI Recolor" --param hue_shift=45 --output output.png
-```
-
-Use `--list-plugins` to see available plugins.
-
-### Export PK3
-
-* Generates `sprites/` folder with correctly named frames.
-* Creates `TEXTURES` lump with offsets.
-* Includes a basic **ZScript actor** stub for quick testing.
-
-### Export WAD Layout
-
-* Saves mirrored rotations into a `_wad/` folder.
-* Writes a `_info.json` file with metadata.
-
----
-
-## 🔌 Plugin System
-
-Plugins are defined in **JSON config files** or `.zip` packs placed in the `plugins/` folder.
-
-Example:
-
-```json
-{
-  "name": "AI Recolor",
-  "version": "1.0.0",
-  "description": "Intelligent color transformation",
-  "author": "Sprite Forge Team",
-  "category": "Color",
-  "parameters": {
-    "hue_shift": {"type": "slider", "min": -180, "max": 180, "default": 0, "label": "Hue Shift"},
-    "saturation": {"type": "slider", "min": 0.0, "max": 2.0, "default": 1.0, "label": "Saturation"},
-    "lightness": {"type": "slider", "min": 0.0, "max": 2.0, "default": 1.0, "label": "Lightness"}
-  },
-  "processing": {
-    "type": "hsv_transform",
-    "steps": [
-      {"action": "convert_hsv"},
-      {"action": "shift_hue", "param": "hue_shift"},
-      {"action": "scale_saturation", "param": "saturation"},
-      {"action": "scale_lightness", "param": "lightness"},
-      {"action": "convert_rgb"}
-    ]
-  }
-}
-```
-
-⚡ When the app starts, it automatically loads all plugins and creates UI widgets for their parameters.
-
-AI plugins expect API keys via environment variables:
-
-* `OPENAI_API_KEY`
-* `ANTHROPIC_API_KEY`
-* `GEMINI_API_KEY`
-
----
-
-## 📷 Screenshots
-
-| Canvas View               | Plugin Panel              | PK3 Export                |
-| ------------------------- | ------------------------- | ------------------------- |
-| ![](docs/screenshot1.png) | ![](docs/screenshot2.png) | ![](docs/screenshot3.png) |
-
-*(place images in `docs/` or use Imgur links)*
-
----
-
-## ⚠️ Notes
-
-* Run `python sprite_forge.py --help` for CLI usage or launch with no arguments for the GUI.
-
----
-
-## 🗺️ Roadmap
-
-* [x] Merge CLI + GUI for a unified tool
-* [x] Add AI-powered plugins (text-to-sprite, style transfer)
-* [x] Plugin marketplace with easy sharing
-* [ ] Advanced PK3 packaging (DECORATE, ACS scripts)
-* [ ] Mac/Linux `.app` and `.AppImage` builds
-
----
-
-## 👨‍💻 Contributing
-
-1. Fork the repo
-2. Create your feature branch (`git checkout -b feature/AmazingPlugin`)
-3. Commit changes (`git commit -m 'Add AmazingPlugin'`)
-4. Push branch (`git push origin feature/AmazingPlugin`)
-5. Open a Pull Request
-
----
-
-## 📜 License
-
-MIT License.
-See [LICENSE](LICENSE) for details.
-
----
-
-## 💡 Credits
-
-* Doom community & ZDoom forums
-* Original authors of **Pillow**, **PyQt6**, **NumPy**
-* Sprite Forge Team 2025
-
+To create your own plugin:
+1. Create a new Python file in the `plugins/` directory.
+2. Define a class that inherits from `BasePlugin`.
+3. Set the `info` class attribute with your plugin's metadata.
+4. Implement the `run(self, **kwargs)` method. This method has access to the core engine via `self.core`.
+5. The application will automatically discover and load your plugin on startup.
