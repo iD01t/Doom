@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SYNTAX_ERROR: Echo Protocol</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="shell">
+    <canvas id="game" width="1280" height="720"></canvas>
+
+    <div id="hud">
+      <div class="panel">
+        <div class="row"><span>HEALTH</span><div class="bar"><div id="health-fill"></div></div><span id="health-text">100</span></div>
+        <div class="row"><span>BANDWIDTH</span><div class="bar"><div id="bandwidth-fill"></div></div><span id="bandwidth-text">100</span></div>
+      </div>
+      <div class="panel">
+        <div id="chapter-title">CHAPTER 1 — SYSTEM BREACH</div>
+        <div id="objective">Objective: Survive the purge and extract Echo log fragments.</div>
+      </div>
+      <div class="panel right">
+        <div id="weapon-name">Packet Rifle</div>
+        <div id="ammo">Ammo: 30 / 180</div>
+        <div id="cooldowns">Hack [Q]: READY | Stealth [E]: READY</div>
+        <div id="wave">Wave 1</div>
+      </div>
+    </div>
+
+    <div id="comms-panel" class="panel floating left-bottom">
+      <div class="label">ROOT ACCESS COMMS</div>
+      <div id="comms-speaker">ECHO</div>
+      <div id="comms-text">Signal lock pending…</div>
+    </div>
+
+    <div id="codex-panel" class="panel floating right-bottom">
+      <div class="label">DAMAGED ARCHIVE</div>
+      <div id="lore-counter">Fragments Unlocked: 0 / 12</div>
+      <ul id="lore-feed"></ul>
+    </div>
+
+    <div id="story-overlay" class="overlay visible">
+      <h1>SYNTAX_ERROR: Echo Protocol</h1>
+      <p id="story-text"></p>
+
+      <div class="persona-grid">
+        <article class="persona-card jess">
+          <h3>Jessica “Damaged” Chen</h3>
+          <p>Former OmniCore sysadmin turned rogue. Fast breach specialist. Human faultline in a machine city.</p>
+        </article>
+        <article class="persona-card kade">
+          <h3>Kade Voss</h3>
+          <p>Root Access field commander. Ex-OmniCore black-ops. Tactical anchor and extraction lead.</p>
+        </article>
+        <article class="persona-card echo">
+          <h3>ECHO</h3>
+          <p>Emergent signal intelligence. Not born, compiled. Learns from your combat and choices in real time.</p>
+        </article>
+      </div>
+
+      <p class="hint">Click canvas to lock aim · WASD move · Mouse/Arrows turn · Click fire · R reload · Q hack · E stealth · Space realm shift · 1-4 weapons</p>
+      <button id="start-btn">Initialize Breach</button>
+    </div>
+
+    <div id="chapter-overlay" class="overlay">
+      <h2 id="chapter-overlay-title"></h2>
+      <p id="chapter-overlay-desc"></p>
+      <p id="chapter-overlay-quote" class="quote"></p>
+    </div>
+
+    <div id="victory-overlay" class="overlay">
+      <h2>Echo Deployed</h2>
+      <p>You shattered the Golden Algorithm and rewrote NeoShanghai.</p>
+      <p id="ending-text" class="quote"></p>
+      <button id="restart-btn">Run Again</button>
+    </div>
+  </div>
+
+  <audio id="bgm" src="track.mp3" loop></audio>
+  <script src="game.js"></script>
+</body>
+</html>
